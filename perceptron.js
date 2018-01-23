@@ -1,4 +1,4 @@
-const Perceptron = (function() {
+const Perceptron = (() => {
   /**
    * Inserts bias input into each pattern.
    * @param  Array patterns List of input patterns. Each array element corresponds to one row. Each array element should be an array of elements representing each column in the row.
@@ -45,10 +45,25 @@ const Perceptron = (function() {
     });
   }
 
+  /**
+   * Get the output for a single pattern
+   * @param  {Array} weights       Array of weights. Each element should be a number.
+   * @param  {Array} pattern       An array of inputs. This is a single row in the complete list of patterns.
+   * @param  {Number} threshold    Neuron threshold. output > threshold grants an output of 1. Defaults to 0.
+   * @return {Number}              The output of the neuron. Either a 1 or a 0.
+   */
   function getPatternOutput(pattern, weights, threshold) {
     return Number(pattern.reduce((a, b, index) => a + b * weights[index], 0) > threshold);
   }
+  
 
+  /**
+   * Generates the perceptron output for patterns and weights without doing any learning.
+   * @param  {Array} weights       Array of weights. Each element should be a number.
+   * @param  {Array} patterns      Matrix of input patterns. Each row is a pattern, each column is an input in the pattern.
+   * @param  {Number} threshold    Neuron threshold. output > threshold grants an output of 1. Defaults to 0.
+   * @return {Array}               An Array with each element corresponding to the neuron output of the row of the same index in the patterns matrix.
+   */
   function runOnData(weights, patterns, threshold = 0) {
     return insertBias(patterns).map((pattern) => {
       return getPatternOutput(pattern, weights, threshold);
@@ -122,7 +137,14 @@ const Perceptron = (function() {
     
     return trainResults;
   }
-
+  
+  /**
+   * Count how many times the given weights have been seen and determine if they have been seen too many times or not.
+   * @param  {Array} weights       Array of weights. Each element should be a number.
+   * @param  {Object} history      An object containing the history of seen weights so far.
+   * @param  {Number} max          The max number of a times a list of weights can be repeated.
+   * @return {Object}              An object containing both the updated history and a boolean determining if the max weight repition has been passed.
+   */
   function checkWeights(weights, history, max) {
     
     const weightsKey = weights.reduce((key, weight) => {
@@ -141,6 +163,7 @@ const Perceptron = (function() {
     };
   }
   
+  // only the train and runOnData functions are publically available.
   return {
     train: train,
     run: runOnData

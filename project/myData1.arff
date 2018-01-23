@@ -1,0 +1,21 @@
+True% Title: My Data 1 For Perceptron Project
+%
+% Description: used car price vs. horsepower and whether I think the car is worth it or not.
+%
+% Source: my head
+
+@relation car_data
+
+@attribute cost continuous
+@attribute horsepower continuous
+@attribute worth_it {false, true}
+
+@data
+2500, 180, true
+8500, 200, false
+6000, 200, false
+5000, 200, true
+5000, 180, false
+7000, 300, true
+7000, 100, false
+600, 100, true

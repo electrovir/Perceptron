@@ -7,11 +7,12 @@ function runTests() {
     orOperation(),
     xorOperationLinear(),
     myData1(),
+    myData2(),
     xorOperation()
   ];
   
   testOperations.forEach((testOperation) => {
-    const RATE = 1;
+    const RATE = 0.4;
     
     console.log('testing ' + testOperation.name);
     const weights = testOperation.patterns[0].map(() => 0).concat(0);
@@ -95,10 +96,19 @@ function runTests() {
 
   function myData1() {
     return {
-      patterns: [[2500, 180], [8500, 200], [6000, 200], [5000, 200], [5000, 180], [7000, 300], [7000, 100], [600, 100]],
-      targets: [1, 0, 0, 1, 0, 1, 0, 1],
+      patterns: [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]],
+      targets: [1,1,1,1,1,0,1,0,0],
       name: 'myData1',
       maxReached: false
+    };  
+  }
+  
+  function myData2() {
+    return {
+      patterns: [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 0], [0, 1], [1, -1], [1, 0], [1, 1]],
+      targets: [0, 0, 1, 1, 1, 1, 0, 0, 1],
+      name: 'myData2',
+      maxReached: true
     };  
   }
 }

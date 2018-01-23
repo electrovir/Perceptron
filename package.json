@@ -1,0 +1,22 @@
+{
+  "name": "perceptron",
+  "version": "0.0.1",
+  "description": "",
+  "main": "perceptron.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/electrovir/Perceptron.git"
+  },
+  "author": "electrovir",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/electrovir/Perceptron/issues"
+  },
+  "homepage": "https://github.com/electrovir/Perceptron#readme",
+  "dependencies": {
+    "node-arff": "^1.1.0"
+  }
+}

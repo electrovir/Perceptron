@@ -36,11 +36,12 @@ const Perceptron = (() => {
         });
       }
       returnObject.accuracy.push(accurate);
-      
+      // console.log(returnObject);
       return returnObject;
     }, {
       accuracy: [],
-      weights: weights,
+      startWeights: weights,
+      weights: weights, // this one changes
       outputs: []
     });
   }
@@ -81,14 +82,17 @@ const Perceptron = (() => {
    * @param  {Number} [threshold=0]           Threshold for each neuron. If neuron net > threshold then neuron output is a 1. Defaults to 0.
    * @return {Array}                      Array of results for each epoch.
    */
-  function train(weights, patterns, targets, learningRate, maxIterations = 999, biasValue = 1, threshold = 0, weightRepeatMax = 5) {
+  function train(weights, patterns, targets, learningRate, maxIterations = 999, biasValue = 1, threshold = 0, weightRepeatMax = 2) {
     
     let iteration = 0;
     let trainResults = {
+      epochsTillFinish: 0,
       epochs: [],
-      patterns: patterns,
+      inputs: patterns,
+      epcohWeights: [],
+      initWeights: weights,
       targets: targets,
-      biasValue: biasValue,
+      finalWeights: [],
       maxReached: {
         reached: false,
         type: 'none'
@@ -100,15 +104,21 @@ const Perceptron = (() => {
     let weightsHistory = {};
     
     const inputs = insertBias(patterns, biasValue);
+    // console.log('bias inputs', inputs);
+    
+    if (weights.length === inputs[0].length - 1) {
+      weights = weights.concat(0);
+    }
     
     if (weights.length !== inputs[0].length) {
-      throw new Error('Invalid number of weights. # weights: ' + weights.length + ' # patterns: ' + inputs[0].length);
+      throw new Error('Invalid number of weights. # weights: ' + weights.length + ' # inputs: ' + inputs[0].length);
     }
     
     // TODO: create way of determining when the training is finished
     while(iteration < maxIterations && !perfection && !looping) {
       const epochResult = singleTargetsEpoch(latestWeights, inputs, targets, learningRate, threshold);
       
+      trainResults.epcohWeights.push(latestWeights);
       latestWeights = epochResult.weights;
       
       trainResults.epochs.push(epochResult);
@@ -133,7 +143,8 @@ const Perceptron = (() => {
       
     }
     
-    console.log('End training.');
+    trainResults.finalWeights = trainResults.epochs[trainResults.epochs.length - 1].weights;
+    trainResults.epochsTillFinish = trainResults.epochs.length - 1;
     
     return trainResults;
   }
@@ -169,3 +180,8 @@ const Perceptron = (() => {
     run: runOnData
   };
 })();
+
+// set module exports if in node
+if (typeof module !== 'undefined' && typeof module === 'object') {
+  Object.assign(module.exports, Perceptron);
+}

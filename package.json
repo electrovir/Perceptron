@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/electrovir/Perceptron#readme",
   "dependencies": {
+    "decimal.js": "^9.0.1",
     "node-arff": "^1.1.0"
   }
 }

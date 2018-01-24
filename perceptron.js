@@ -1,4 +1,23 @@
 const Perceptron = (() => {
+  
+  // it might be considered unneccessary to include this since node-arff already includes a randomize function, but this file is meant to be node independent and able to run in the browser.
+  // used with permission from: https://github.com/Prendus/functions/blob/master/functions.js
+  // 
+  // This MIGHT be a pretty big performance hit
+  function shuffleItems(array) {
+    let resultArray = [];
+    
+    for (let i = 0; i < array.length; i++) {
+      let randomIndex = Math.floor(Math.random() * array.length);
+      
+      resultArray.push(array[randomIndex]);
+      
+      array.splice(randomIndex, 1);
+    }
+    resultArray = resultArray.concat(array);
+    return resultArray;
+	}
+  
   /**
    * Inserts bias input into each pattern.
    * @param  Array patterns List of input patterns. Each array element corresponds to one row. Each array element should be an array of elements representing each column in the row.
@@ -32,11 +51,10 @@ const Perceptron = (() => {
         returnObject.weights = returnObject.weights.map((weight, weightIndex) => {
           // targets[i] is the current target for the entire pattern
           // pattern[weightIndex] is the input corresponding to the current weight, weight
-          return weight + learningRate * pattern[weightIndex] * (targets[patternIndex] - output);
+          return Number((weight + learningRate * pattern[weightIndex] * (targets[patternIndex] - output)).toFixed(5));
         });
       }
       returnObject.accuracy.push(accurate);
-      // console.log(returnObject);
       return returnObject;
     }, {
       accuracy: [],
@@ -66,8 +84,17 @@ const Perceptron = (() => {
    * @return {Array}               An Array with each element corresponding to the neuron output of the row of the same index in the patterns matrix.
    */
   function runOnData(weights, patterns, threshold = 0) {
+    weights = weights.concat(0);
+    
+    // returns an array of outputs from the given patterns
     return insertBias(patterns).map((pattern) => {
       return getPatternOutput(pattern, weights, threshold);
+    });
+  }
+  
+  function testData(weights, patterns, targets, threshold = 0) {
+    return runOnData(weights, patterns, threshold).map((output, index) => {
+      return output === targets[index];
     });
   }
 
@@ -82,7 +109,7 @@ const Perceptron = (() => {
    * @param  {Number} [threshold=0]           Threshold for each neuron. If neuron net > threshold then neuron output is a 1. Defaults to 0.
    * @return {Array}                      Array of results for each epoch.
    */
-  function train(weights, patterns, targets, learningRate, maxIterations = 999, biasValue = 1, threshold = 0, weightRepeatMax = 2) {
+  function train(weights, patterns, targets, learningRate, shuffleBetweenEpochs = false, maxIterations = 999, biasValue = 1, threshold = 0, weightRepeatMax = 2) {
     
     let iteration = 0;
     let trainResults = {
@@ -98,19 +125,15 @@ const Perceptron = (() => {
         type: 'none'
       }
     };
-    let latestWeights = weights;
+    
+    let latestWeights = weights.concat(0);
     let perfection = false;
     let looping = false;
     let weightsHistory = {};
     
-    const inputs = insertBias(patterns, biasValue);
-    // console.log('bias inputs', inputs);
+    let inputs = insertBias(patterns, biasValue);
     
-    if (weights.length === inputs[0].length - 1) {
-      weights = weights.concat(0);
-    }
-    
-    if (weights.length !== inputs[0].length) {
+    if (latestWeights.length !== inputs[0].length) {
       throw new Error('Invalid number of weights. # weights: ' + weights.length + ' # inputs: ' + inputs[0].length);
     }
     
@@ -129,6 +152,10 @@ const Perceptron = (() => {
       weightsHistory = weightChecker.history;
       
       looping = weightChecker.repeatMaxxed;
+      
+      if (shuffleBetweenEpochs) {
+        inputs = shuffleItems(inputs);
+      }
       
       iteration++;
     }
@@ -177,7 +204,8 @@ const Perceptron = (() => {
   // only the train and runOnData functions are publically available.
   return {
     train: train,
-    run: runOnData
+    run: runOnData,
+    test: testData
   };
 })();
 

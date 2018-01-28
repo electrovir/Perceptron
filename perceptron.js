@@ -1,21 +1,25 @@
 const Perceptron = (() => {
   
   // it might be considered unneccessary to include this since node-arff already includes a randomize function, but this file is meant to be node independent and able to run in the browser.
-  // used with permission from: https://github.com/Prendus/functions/blob/master/functions.js
   // 
   // This MIGHT be a pretty big performance hit
-  function shuffleItems(array) {
-    let resultArray = [];
+  function shuffleDoubleArray(array1, array2) {
+    let resultArray1 = [];
+    let resultArray2 = [];
     
-    for (let i = 0; i < array.length; i++) {
-      let randomIndex = Math.floor(Math.random() * array.length);
+    for (let i = 0; i < array1.length; i++) {
+      let randomIndex = Math.floor(Math.random() * array1.length);
       
-      resultArray.push(array[randomIndex]);
+      resultArray1.push(array1[randomIndex]);
+      resultArray2.push(array2[randomIndex]);
       
-      array.splice(randomIndex, 1);
+      array1.splice(randomIndex, 1);
+      array2.splice(randomIndex, 1);
     }
-    resultArray = resultArray.concat(array);
-    return resultArray;
+    resultArray1 = resultArray1.concat(array1);
+    resultArray2 = resultArray2.concat(array2);
+    
+    return [resultArray1, resultArray2];
 	}
   
   /**
@@ -39,29 +43,29 @@ const Perceptron = (() => {
    * @return {Object}              An object containing both the accruacy of the epoch and the newly learned weights.
    */
   function singleTargetsEpoch(weights, patterns, targets, learningRate, threshold = 0) {  
-    return patterns.reduce((returnObject, pattern, patternIndex) => {
+    let epochResults = patterns.reduce((returnObject, pattern, patternIndex) => {
       const output = getPatternOutput(pattern, returnObject.weights, threshold);
       returnObject.outputs.push(output);
-      let accurate = 0;
       
-      if (output == targets[patternIndex]) {
-        accurate = 1;
-      }
-      else {
+      if (output != targets[patternIndex]) {
         returnObject.weights = returnObject.weights.map((weight, weightIndex) => {
           // targets[i] is the current target for the entire pattern
           // pattern[weightIndex] is the input corresponding to the current weight, weight
           return Number((weight + learningRate * pattern[weightIndex] * (targets[patternIndex] - output)).toFixed(5));
         });
       }
-      returnObject.accuracy.push(accurate);
+      
       return returnObject;
     }, {
-      accuracy: [],
       startWeights: weights,
       weights: weights, // this one changes
       outputs: []
     });
+    
+    epochResults.accuracy = testData(epochResults.weights, patterns, targets, threshold);
+    epochResults.accuracyCount = epochResults.accuracy.reduce((a, b) => a + b, 0);
+    
+    return epochResults;
   }
 
   /**
@@ -74,7 +78,6 @@ const Perceptron = (() => {
   function getPatternOutput(pattern, weights, threshold) {
     return Number(pattern.reduce((a, b, index) => a + b * weights[index], 0) > threshold);
   }
-  
 
   /**
    * Generates the perceptron output for patterns and weights without doing any learning.
@@ -83,18 +86,21 @@ const Perceptron = (() => {
    * @param  {Number} threshold    Neuron threshold. output > threshold grants an output of 1. Defaults to 0.
    * @return {Array}               An Array with each element corresponding to the neuron output of the row of the same index in the patterns matrix.
    */
-  function runOnData(weights, patterns, threshold = 0) {
-    weights = weights.concat(0);
+  function runOnData(weights, inputPatterns, threshold = 0) {
+    let patterns = inputPatterns;
+    if (patterns[0].length === weights.length - 1) {
+      patterns = insertBias(patterns);
+    }
     
     // returns an array of outputs from the given patterns
-    return insertBias(patterns).map((pattern) => {
+    return patterns.map((pattern) => {
       return getPatternOutput(pattern, weights, threshold);
     });
   }
   
   function testData(weights, patterns, targets, threshold = 0) {
     return runOnData(weights, patterns, threshold).map((output, index) => {
-      return output === targets[index];
+      return Number(output == targets[index]);
     });
   }
 
@@ -109,7 +115,11 @@ const Perceptron = (() => {
    * @param  {Number} [threshold=0]           Threshold for each neuron. If neuron net > threshold then neuron output is a 1. Defaults to 0.
    * @return {Array}                      Array of results for each epoch.
    */
-  function train(weights, patterns, targets, learningRate, shuffleBetweenEpochs = false, maxIterations = 999, biasValue = 1, threshold = 0, weightRepeatMax = 2) {
+  function train(weights, patterns, inputTargets, learningRate, shuffleBetweenEpochs = false, maxIterations = 999, biasValue = 1, threshold = 0, maxAccuracyDecrease = 10) {
+    
+    // this is really hacky looking but this creates a deep copy in one simple line of code
+    let targets = JSON.parse(JSON.stringify(inputTargets));
+    let inputs = insertBias(patterns, biasValue);
     
     let iteration = 0;
     let trainResults = {
@@ -119,42 +129,60 @@ const Perceptron = (() => {
       epcohWeights: [],
       initWeights: weights,
       targets: targets,
-      finalWeights: [],
+      finalWeights: undefined,
       maxReached: {
         reached: false,
         type: 'none'
-      }
+      },
+      finalAccuracy: 0,
+      firstEpoch: singleTargetsEpoch(weights.slice(), inputs, targets, learningRate, threshold)
     };
     
     let latestWeights = weights.concat(0);
     let perfection = false;
-    let looping = false;
-    let weightsHistory = {};
-    
-    let inputs = insertBias(patterns, biasValue);
+    let worsening = false;
+    let accuracies = [{
+      accuracy: -1,
+      epochIndex: -1,
+      countSinceLastReset: 0
+    }];
     
     if (latestWeights.length !== inputs[0].length) {
       throw new Error('Invalid number of weights. # weights: ' + weights.length + ' # inputs: ' + inputs[0].length);
     }
     
+    
     // TODO: create way of determining when the training is finished
-    while(iteration < maxIterations && !perfection && !looping) {
+    while(iteration < maxIterations && !perfection && !worsening) {
       const epochResult = singleTargetsEpoch(latestWeights, inputs, targets, learningRate, threshold);
       
       trainResults.epcohWeights.push(latestWeights);
       latestWeights = epochResult.weights;
       
       trainResults.epochs.push(epochResult);
+    
+      perfection = epochResult.accuracy.length === epochResult.accuracyCount;
       
-      perfection = epochResult.accuracy.length === epochResult.accuracy.reduce((a, b) => a + b, 0);
+      if (epochResult.accuracyCount <= accuracies[0].accuracy) {
+        accuracies.push({
+          accuracy: epochResult.accuracyCount,
+          epochIndex: iteration
+        });
+      }
+      else {
+        accuracies = [{
+          accuracy: epochResult.accuracyCount,
+          epochIndex: iteration,
+          countSinceLastReset: iteration - accuracies[0].countSinceLastReset
+        }];
+      }
       
-      const weightChecker = checkWeights(epochResult.weights, weightsHistory, weightRepeatMax);
-      weightsHistory = weightChecker.history;
-      
-      looping = weightChecker.repeatMaxxed;
+      if (accuracies.length > 10) {
+        worsening = true;
+      }
       
       if (shuffleBetweenEpochs) {
-        inputs = shuffleItems(inputs);
+        [inputs, targets] = shuffleDoubleArray(inputs, targets);
       }
       
       iteration++;
@@ -164,41 +192,23 @@ const Perceptron = (() => {
       trainResults.maxReached.reached = true;
       trainResults.maxReached.type = 'maxIterations';
     }
-    else if (looping) {
+    else if (worsening) {
       trainResults.maxReached.reached = true;
-      trainResults.maxReached.type = 'looping';
-      
+      trainResults.maxReached.type = 'accuracyDecrease';
     }
     
-    trainResults.finalWeights = trainResults.epochs[trainResults.epochs.length - 1].weights;
-    trainResults.epochsTillFinish = trainResults.epochs.length - 1;
+    if (perfection) {
+      trainResults.finalWeights = trainResults.epochs[trainResults.epochs.length - 1].weights;
+      trainResults.epochsTillFinish = trainResults.epochs.length;
+    }
+    else {
+      trainResults.finalWeights = trainResults.epochs[accuracies[0].epochIndex].weights;
+      trainResults.epochsTillFinish = accuracies[0].epochIndex + 1;
+    }
+    
+    trainResults.finalAccuracy = trainResults.epochs[trainResults.epochsTillFinish - 1].accuracy.reduce((a, b) => a + b, 0);
     
     return trainResults;
-  }
-  
-  /**
-   * Count how many times the given weights have been seen and determine if they have been seen too many times or not.
-   * @param  {Array} weights       Array of weights. Each element should be a number.
-   * @param  {Object} history      An object containing the history of seen weights so far.
-   * @param  {Number} max          The max number of a times a list of weights can be repeated.
-   * @return {Object}              An object containing both the updated history and a boolean determining if the max weight repition has been passed.
-   */
-  function checkWeights(weights, history, max) {
-    
-    const weightsKey = weights.reduce((key, weight) => {
-      return key.concat(weight, '_');
-    }, '');
-    
-    if (!history.hasOwnProperty(weightsKey)) {
-      history[weightsKey] = 0;
-    }
-    
-    history[weightsKey]++;
-    
-    return {
-      history: history,
-      repeatMaxxed: history[weightsKey] > max
-    };
   }
   
   // only the train and runOnData functions are publically available.

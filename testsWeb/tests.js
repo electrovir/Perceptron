@@ -101,16 +101,30 @@ function runTests(testOperations, learningRate = 0.4) {
 // CODE EXECUTION
 // 
 
-runTests(
-  [
-    DATA_SETS.myData1
-  ],
-  0.1
-);
-
-runTests(
-  [
-    DATA_SETS.myData2
-  ],
-  0.1
-);
+// runTests(
+//   [
+//     DATA_SETS.myData1
+//   ],
+//   0.1
+// );
+// 
+// runTests(
+//   [
+//     DATA_SETS.myData2
+//   ],
+//   0.1
+// );
+// 
+// runTests(
+//   [
+//     DATA_SETS.myData1
+//   ],
+//   -0.1
+// );
+// 
+// runTests(
+//   [
+//     DATA_SETS.myData2
+//   ],
+//   -0.1
+// );

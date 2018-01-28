@@ -5,31 +5,9 @@ const PERCEPTRON = require('./perceptron.js');
 // PRIVATE FUNCTIONS
 // 
 
-function splitArffData(arffData, trainSplit) {
-  
-  arffData.randomize();
-  
-  trainData = Object.assign({}, arffData, {data: []});
-  testData  = Object.assign({}, arffData, {data: []});
-  
-  arffData.data.forEach((dataRow, index) => {
-    if (index < Math.floor(trainSplit * arffData.data.length)) {
-      trainData.data.push(dataRow);
-    }
-    else {
-      testData.data.push(dataRow);
-    }
-  });
-  
-  return {
-    trainArffData: trainData,
-    testArffData: testData
-  };
-}
-
 function arffToInputs(arffData, targetAttributes) {  
   // set the target to the last attribute if no target attributes are given
-  if (!Array.isArray(targetAttributes) || targetAttributes.length < 1) {
+  if (!targetAttributes || !Array.isArray(targetAttributes) || targetAttributes.length < 1) {
     targetAttributes = [arffData.attributes[arffData.attributes.length - 1]];
   }
   
@@ -41,7 +19,7 @@ function arffToInputs(arffData, targetAttributes) {
   });
   
   // filter out the target attributes to get the input attributes
-  const inputAttributes = data.attributes.filter((attribute) => {
+  const inputAttributes = arffData.attributes.filter((attribute) => {
     return targetAttributes.indexOf(attribute) === -1;
   });
   
@@ -67,7 +45,7 @@ function defaultWeights(targetCount, inputCount, defaultWeight = 0) {
   for (let i = 0; i < targetCount; i++) {
     let weightRow = [];
     
-    for (let j = 0; j < inputcount; j++) {
+    for (let j = 0; j < inputCount; j++) {
       weightRow.push(0);
     }
     weights.push(weightRow);
@@ -100,17 +78,21 @@ function runPerceptronOnArffData(arffInputs, weightsSet, threshold) {
 
 function testPerceptronOnArffData(arffInputs, weightsSet, threshold) {
   return weightsSet.map((weights, index) => {
-    return Perceptron.test(weights, arffInputs.patterns, arffInputs.targetColumns[index]);
+    return PERCEPTRON.test(weights, arffInputs.patterns, arffInputs.targetColumns[index]);
   });
 }
 
-function setupPerceptronTrainingOptions(options) {
+function setupPerceptronTrainingOptions(arffData, options) {
+  if (!options) {
+    options = {};
+  }
+  
   let initWeightsSet = options.initWeightsSet;
   const shuffle = options.shuffle || false;
   const learningRate = options.learningRate || 0.1;
 
   if (!Array.isArray(initWeightsSet) || initWeightsSet.length < 1) {
-    initWeightsSet = defaultWeights(targetColumns.length, patterns.length);
+    initWeightsSet = defaultWeights(arffData.targetColumns.length, arffData.patterns[0].length);
   }
   
   return [
@@ -124,6 +106,28 @@ function setupPerceptronTrainingOptions(options) {
 // PUBLIC FUNCTIONS
 // 
 
+function splitArffData(arffData, trainSplit) {
+  
+  arffData.randomize();
+  
+  trainData = Object.assign({}, arffData, {data: []});
+  testData  = Object.assign({}, arffData, {data: []});
+  
+  arffData.data.forEach((dataRow, index) => {
+    if (index < Math.floor(trainSplit * arffData.data.length)) {
+      trainData.data.push(dataRow);
+    }
+    else {
+      testData.data.push(dataRow);
+    }
+  });
+  
+  return {
+    trainArffData: trainData,
+    testArffData: testData
+  };
+}
+
 // NOTE: ASYNCHRONOUS!!
 function loadArff(fileName, callback) {
   ARFF.load(fileName, (error, data) => {
@@ -134,12 +138,13 @@ function loadArff(fileName, callback) {
   });
 }
 
-function trainOnArff(fileName, callback, options) {
+function trainOnArff(fileName, callback, options = {}) {
   loadArff(fileName, (arffData) => {
+    const arffInputs = arffToInputs(arffData);
     callback(
       trainPerceptronOnArffData(
-        arffToInputs(arffData),
-        ...setupPerceptronTrainingOptions(options)
+        arffInputs,
+        ...setupPerceptronTrainingOptions(arffInputs, options)
       )
     );
   });
@@ -147,7 +152,7 @@ function trainOnArff(fileName, callback, options) {
   return 'THIS IS ASYNCHRONOUS';
 }
 
-function runOnArff(fileName, weightsSet, callback, options) {
+function runOnArff(fileName, weightsSet, callback, options = {}) {
   loadArff(fileName, (arffData) => {
     callback(
       runPerceptronOnArffData(
@@ -161,7 +166,7 @@ function runOnArff(fileName, weightsSet, callback, options) {
   return 'THIS IS ASYNCHRONOUS';
 }
 
-function testOnArff(fileName, weightsSet, callback, options) {
+function testOnArff(fileName, weightsSet, callback, options = {}) {
   loadArff(fileName, (arffData) => {
     callback(
       testPerceptronOnArffData(
@@ -175,22 +180,27 @@ function testOnArff(fileName, weightsSet, callback, options) {
   return 'THIS IS ASYNCHRONOUS';
 }
 
-function trainTestOnArff(fileName, trainSplit, weightsSet, callback, options) {
+function trainTestOnArff(fileName, trainSplit, callback, options = {}) {
   loadArff(fileName, (arffData) => {
     
     const arffSplitData = splitArffData(arffData, trainSplit);
+    const arffTrainInputs = arffToInputs(arffSplitData.trainArffData, options.targetAttributes);
+    const arffTestInputs = arffToInputs(arffSplitData.testArffData, options.targetAttributes);
     
     const trainResults = trainPerceptronOnArffData(
-      arffToInputs(arffSplitData.trainArffData),
-      ...setupPerceptronTrainingOptions(options)
+      arffTrainInputs,
+      ...setupPerceptronTrainingOptions(arffTrainInputs, options)
     );
+    
+    const weightsSet = trainResults.results.map((result) => {
+      return result.finalWeights;
+    });
     
     const testResults = testPerceptronOnArffData(
-      arffToInputs(arffSplitData.trainArffData.testArffData),
-      weightsSet,
-      options.threshold
-    );
-    
+        arffTestInputs,
+        weightsSet,
+        options.threshold
+      );
     
     callback({
       training: trainResults,
@@ -206,5 +216,6 @@ module.exports = {
   run: runOnArff,
   test: testOnArff,
   trainTest: trainTestOnArff,
-  load: loadArff
+  load: loadArff,
+  split: splitArffData
 };
